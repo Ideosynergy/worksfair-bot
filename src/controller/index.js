@@ -1,11 +1,16 @@
+/* eslint-disable camelcase */
 import dotenv from 'dotenv';
 
 import assistant from '../watson-assistant';
 
+import { worksfair_search } from '../watson-assistant/intents';
+import searchWorksfair from '../worksfair-backend';
+import extractSearchTerms from '../utils/input-handlers';
+import formatResultMessage from '../message-formatter';
+
 dotenv.config();
 
 const {
-  // eslint-disable-next-line camelcase
   WATSON_assistant_id,
 } = process.env;
 
@@ -22,9 +27,10 @@ assistant.createSession({
   });
 
 const messageReceiver = (request, response) => {
-  const { messageobj } = request.body;
-  const message = JSON.parse(messageobj).text;
-  console.log(message);
+  let { messageobj } = request.body;
+  messageobj = JSON.parse(messageobj);
+  const message = messageobj.text;
+  //   console.log(messageobj);
   assistant.message({
     assistant_id: WATSON_assistant_id,
     session_id: sessionId,
@@ -33,13 +39,21 @@ const messageReceiver = (request, response) => {
       text: message,
     },
   })
-    .then((res) => {
-    //   console.log(res.output);
-      return response.status(200).send(res.output.generic[0].text);
+    .then(async (res) => {
+      const { generic, intents } = res.output;
+      console.log(res.output);
+      if (intents[0] && intents[0].intent === worksfair_search) {
+        const searchTerms = extractSearchTerms(message);
+        const searchResults = await searchWorksfair(searchTerms);
+        const resultMessage = formatResultMessage(searchResults);
+        response.status(200).send(resultMessage);
+      } else {
+        return response.status(200).send(generic[0].text);
+      }
     })
     .catch((err) => {
       console.log(err);
-      return response.status(500).send('Hi, something went wrong. Please send a message to +2348136064066');
+      return response.status(500).send('Hi, something went wrong. Please inform Theo: +2348136064066 about this and try again.');
     });
 };
 
