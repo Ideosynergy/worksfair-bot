@@ -4,9 +4,13 @@ import dotenv from 'dotenv';
 import assistant from '../watson-assistant';
 
 import { worksfair_search } from '../watson-assistant/intents';
-import searchWorksfair from '../worksfair-backend';
+import { searchWorksfair, getBusiness } from '../worksfair-backend';
 import extractSearchTerms from '../utils/input-handlers';
-import formatResultMessage from '../message-formatter';
+import {
+  formatSearchResultMessage,
+  formatMoreDetailsMessage
+} from '../message-formatter';
+import { getMatchingEntities } from '../utils/helpers';
 
 dotenv.config();
 
@@ -30,7 +34,9 @@ const messageReceiver = (request, response) => {
   let { messageobj } = request.body;
   messageobj = JSON.parse(messageobj);
   const message = messageobj.text;
-  //   console.log(messageobj);
+  console.log('Message Object', messageobj);
+
+  // Send the message to Watson-Assistant
   assistant.message({
     assistant_id: WATSON_assistant_id,
     session_id: sessionId,
@@ -40,13 +46,25 @@ const messageReceiver = (request, response) => {
     },
   })
     .then(async (res) => {
-      const { generic, intents } = res.output;
+      const { generic, intents, entities } = res.output;
+      const numberEntities = getMatchingEntities(entities, 'sys-number');
       console.log(res.output);
       if (intents[0] && intents[0].intent === worksfair_search) {
         const searchTerms = extractSearchTerms(message);
+
+        // make the search API request to worksfair
         const searchResults = await searchWorksfair(searchTerms);
-        const resultMessage = formatResultMessage(searchResults);
+
+        // Formats the SearchResults to a WhatsApp message
+        const resultMessage = formatSearchResultMessage(searchResults);
         response.status(200).send(resultMessage);
+      } else if (numberEntities[0]) {
+        // make the API request to worksfair to get specific business
+        const business = await getBusiness(entities[0].value);
+
+        // Formats the response to Whatsapp message
+        const moreDetailsMessage = formatMoreDetailsMessage(business);
+        return response.status(200).send(moreDetailsMessage);
       } else {
         return response.status(200).send(generic[0].text);
       }
