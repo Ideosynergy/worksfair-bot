@@ -8,7 +8,7 @@
  */
 const extractSearchTerms = (text) => {
   let textArray;
-  if (text.includes('find')) {
+  if (text.toLocaleLowerCase().includes('find')) {
     const newText = text.substring(5, text.length);
     textArray = newText.split(' in ');
   } else {

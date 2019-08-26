@@ -1,5 +1,6 @@
 /* eslint-disable camelcase */
 import dotenv from 'dotenv';
+import cron from 'node-cron';
 
 import assistant from '../watson-assistant';
 
@@ -19,6 +20,27 @@ const {
 } = process.env;
 
 let sessionId;
+
+cron.schedule('*/4 * * * *', () => {
+  assistant.deleteSession({
+    assistant_id: WATSON_assistant_id,
+    session_id: sessionId,
+  })
+    .catch((error) => {
+      console.log(error);
+    });
+
+  assistant.createSession({
+    assistant_id: WATSON_assistant_id,
+  })
+    .then((response) => {
+      sessionId = response.session_id;
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+  console.log('Watson Assistant session reset complete');
+});
 
 assistant.createSession({
   assistant_id: WATSON_assistant_id,
@@ -71,7 +93,7 @@ const messageReceiver = (request, response) => {
     })
     .catch((err) => {
       console.log(err);
-      return response.status(500).send('Hi, something went wrong. Please inform Theo: +2348136064066 about this and try again.');
+      return response.status(500).send('Hi, something went wrong. Please *try again*. If is continues, please inform Theo: +2348136064066');
     });
 };
 
